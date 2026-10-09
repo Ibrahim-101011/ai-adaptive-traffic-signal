@@ -1,0 +1,59 @@
+system:
+  video_source: "sample_traffic.mp4"       # Options: "webcam" or "videos/sample_traffic.mp4"
+  camera_index: 0
+  frame_width: 1280
+  frame_height: 720
+  target_fps: 30
+  frame_skip: 2
+
+detector:
+  model_path: "models/yolov8n.pt"
+  confidence_threshold: 0.35
+  iou_threshold: 0.45
+  device: "cpu"                # Options: "cpu" or "0" (for CUDA GPU)
+  target_classes: [2, 3, 5, 7] # COCO indices: 2=car, 3=motorcycle, 5=bus, 7=truck
+
+regions:
+  road1: # North
+    - [0.38, 0.05]
+    - [0.62, 0.05]
+    - [0.62, 0.40]
+    - [0.38, 0.40]
+  road2: # East
+    - [0.60, 0.38]
+    - [0.95, 0.38]
+    - [0.95, 0.62]
+    - [0.60, 0.62]
+  road3: # South
+    - [0.38, 0.60]
+    - [0.62, 0.60]
+    - [0.62, 0.95]
+    - [0.38, 0.95]
+  road4: # West
+    - [0.05, 0.38]
+    - [0.40, 0.38]
+    - [0.40, 0.62]
+    - [0.05, 0.62]
+
+density_thresholds:
+  low_max: 3
+  medium_max: 8
+
+signal_timing:
+  min_green: 10
+  max_green: 45
+  yellow_duration: 3
+  all_red_duration: 2
+  emergency_duration: 15
+  starvation_threshold: 3
+  fixed_time_duration: 20
+
+serial:
+  enabled: false               # Kept false until ESP32 is flashed & plugged in
+  port: "COM3"
+  baud_rate: 115200
+  timeout: 1.0
+
+logging:
+  log_interval_seconds: 1.0
+  output_csv: "data/processed/traffic_telemetry.csv"
