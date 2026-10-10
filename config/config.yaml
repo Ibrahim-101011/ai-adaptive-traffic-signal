@@ -1,34 +1,53 @@
-system: {video_source: videos/sample1.mp4, camera_index: 0, frame_width: 1280, frame_height: 720,
-  target_fps: 30, frame_skip: 2}
+system:
+  video_source: "sim"    # Options: "sim", "webcam", or "path/to/video.mp4"
+  camera_index: 0
+  frame_skip: 1
+
 detector:
-  model_path: models/yolov8n.pt
+  model_path: "models/yolov8n.pt"
   confidence_threshold: 0.15
-  iou_threshold: 0.3
-  device: cpu
-  target_classes: [2, 3, 5, 7]
+  target_classes: [2, 3, 5, 7] # car, motorcycle, bus, truck
+  device: "cpu"
+
+signal_timing:
+  min_green: 6
+  max_green: 20
+  yellow_duration: 3
+  all_red_duration: 1
+  starvation_threshold: 3
+  emergency_duration: 12
+
+density_thresholds:
+  low_max: 3
+  medium_max: 8
+
 regions:
   road1:
-  - [0.042, 0.251]
-  - [0.325, 0.265]
-  - [0.343, 0.467]
-  - [0.034, 0.424]
+    - [0.44375, 0.0]
+    - [0.5, 0.0]
+    - [0.5, 0.43375]
+    - [0.44375, 0.43375]
   road2:
-  - [0.413, 0.501]
-  - [0.598, 0.487]
-  - [0.6, 0.54]
-  - [0.446, 0.544]
+    - [0.56625, 0.44375]
+    - [1.0, 0.44375]
+    - [1.0, 0.5]
+    - [0.56625, 0.5]
   road3:
-  - [0.503, 0.169]
-  - [0.511, 0.215]
-  - [0.536, 0.209]
-  - [0.527, 0.169]
+    - [0.5, 0.56625]
+    - [0.55625, 0.56625]
+    - [0.55625, 1.0]
+    - [0.5, 1.0]
   road4:
-  - [0.281, 0.139]
-  - [0.291, 0.182]
-  - [0.327, 0.167]
-  - [0.315, 0.106]
-density_thresholds: {low_max: 3, medium_max: 8}
-signal_timing: {min_green: 10, max_green: 45, yellow_duration: 3, all_red_duration: 2,
-  emergency_duration: 15, starvation_threshold: 3, fixed_time_duration: 20}
-serial: {enabled: false, port: COM3, baud_rate: 115200, timeout: 1.0}
-logging: {log_interval_seconds: 1.0, output_csv: data/processed/traffic_telemetry.csv}
+    - [0.0, 0.5]
+    - [0.43375, 0.5]
+    - [0.43375, 0.55625]
+    - [0.0, 0.55625]
+
+serial:
+  enabled: false
+  port: "COM3"
+  baud_rate: 115200
+
+logging:
+  output_csv: "data/processed/traffic_telemetry.csv"
+  log_interval_seconds: 1.0

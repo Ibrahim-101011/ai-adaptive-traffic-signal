@@ -2,26 +2,23 @@ import cv2
 import numpy as np
 
 class RoadRegionManager:
-    def __init__(self, region_configs: dict, frame_width: int, frame_height: int):
-        self.frame_width = frame_width
-        self.frame_height = frame_height
-        self.regions = {}
-        self.update_regions(region_configs, frame_width, frame_height)
-
-    def update_regions(self, region_configs: dict, frame_width: int, frame_height: int):
-        self.frame_width = frame_width
-        self.frame_height = frame_height
+    def __init__(self, regions_dict: dict, frame_w: int = 800, frame_h: int = 800):
+        self.frame_w = frame_w
+        self.frame_h = frame_h
         self.regions = {}
 
-        for road_key, points in region_configs.items():
-            pixel_points = np.array([
-                [int(pt[0] * self.frame_width), int(pt[1] * self.frame_height)]
-                for pt in points
-            ], dtype=np.int32)
-            self.regions[road_key] = pixel_points
+        for name, pts in regions_dict.items():
+            pts_array = np.array(pts, dtype=np.float32)
+            if np.max(pts_array) <= 1.0:
+                pts_array[:, 0] *= frame_w
+                pts_array[:, 1] *= frame_h
+            self.regions[name] = pts_array.astype(np.int32)
 
     def assign_road(self, centroid: tuple):
-        for road_name, polygon in self.regions.items():
-            if cv2.pointPolygonTest(polygon, (float(centroid[0]), float(centroid[1])), measureDist=False) >= 0:
+        if centroid is None:
+            return None
+        pt = (float(centroid[0]), float(centroid[1]))
+        for road_name, poly in self.regions.items():
+            if cv2.pointPolygonTest(poly, pt, False) >= 0:
                 return road_name
         return None

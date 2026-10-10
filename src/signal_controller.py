@@ -1,126 +1,135 @@
+from typing import Dict, Any
+
 class AdaptiveSignalController:
-    STATE_GREEN = "GREEN"
-    STATE_YELLOW = "YELLOW"
-    STATE_ALL_RED = "ALL_RED"
+    def __init__(self, min_green: int = 5, max_green: int = 20, fixed_green: int = 10, yellow_dur: float = 2.0, red_dur: float = 1.0):
+        self.min_green = min_green
+        self.max_green = max_green
+        self.fixed_green = fixed_green
+        self.yellow_duration = yellow_dur
+        self.all_red_duration = red_dur
+        self.starvation_threshold = 3
 
-    def __init__(self, config: dict):
-        timing = config.get("signal_timing", {})
-        self.min_green = timing.get("min_green", 10)
-        self.max_green = timing.get("max_green", 45)
-        self.yellow_duration = timing.get("yellow_duration", 3)
-        self.all_red_duration = timing.get("all_red_duration", 2)
-        self.starvation_threshold = timing.get("starvation_threshold", 3)
-        self.fixed_time_duration = timing.get("fixed_time_duration", 20)
-
-        self.mode = "ADAPTIVE"
+        self.roads = ["road1", "road2", "road3", "road4"]
         self.active_road = "road1"
-        self.current_state = self.STATE_GREEN
-        self.allocated_duration = float(self.min_green)
-        self.elapsed_in_state = 0.0
+        self.current_state = "ALL_RED"
+        self.mode = "ADAPTIVE"
 
-        # Anti-starvation cycle counter
-        self.cycles_starved = {"road1": 0, "road2": 0, "road3": 0, "road4": 0}
+        self.elapsed_time = 0.0
+        self.allocated_green = self.min_green
+        self.starvation_counters = {r: 0 for r in self.roads}
 
     def set_mode(self, mode: str):
-        if mode in ["ADAPTIVE", "FIXED"]:
-            self.mode = mode
+        self.mode = mode
+        if mode == "FIXED":
+            self.allocated_green = float(self.fixed_green)
 
-    def calculate_green_time(self, priority_score: float) -> int:
-        """Dynamically scales green duration linearly between min_green and max_green."""
-        if priority_score <= 2.0:
-            return self.min_green
-        # Normalizes score between 2.0 and 20.0 to map across green window
-        normalized = min(1.0, (priority_score - 2.0) / 18.0)
-        calculated = self.min_green + (self.max_green - self.min_green) * normalized
-        return int(round(calculated))
+    def _calc_green(self, pcu: float) -> float:
+        if pcu <= 0:
+            return float(self.min_green)
+        scaled = self.min_green + (pcu * 2.0)
+        return float(min(self.max_green, max(self.min_green, scaled)))
 
-    def select_next_road(self, density_scores: dict) -> str:
-        """Selects highest weighted road, accounting for cumulative starvation penalties."""
-        weighted_scores = {}
-        for road, score in density_scores.items():
-            if road == self.active_road:
-                # Active road cannot immediately repeat if others are waiting
-                weighted_scores[road] = -1.0
+    def step(self, dt: float, density_scores: Dict[str, float], emergency_mgr: Any) -> Dict[str, Any]:
+        self.elapsed_time += dt
+
+        # 1. Emergency Preemption Override
+        if emergency_mgr and getattr(emergency_mgr, "is_emergency", False):
+            self.mode = "EMERGENCY"
+            target = emergency_mgr.emergency_road or "road1"
+            rem = max(0, int(round(emergency_mgr.active_time_remaining)))
+
+            if self.active_road != target or self.current_state != "GREEN":
+                self.active_road = target
+                self.current_state = "GREEN"
+                self.elapsed_time = 0.0
+                self.allocated_green = float(rem or 10.0)
+
+            return {
+                "active_road": self.active_road,
+                "state": self.current_state,
+                "remaining_seconds": rem,
+                "mode": self.mode
+            }
+
+        # Return from emergency state
+        if self.mode == "EMERGENCY":
+            self.mode = "ADAPTIVE"
+            self.current_state = "YELLOW"
+            self.elapsed_time = 0.0
+
+        current_pcu = density_scores.get(self.active_road, 0.0)
+        total_pcu = sum(density_scores.values())
+
+        # 2. State Machine Transitions
+        if self.current_state == "GREEN":
+            if self.mode == "FIXED":
+                # In FIXED mode: Run the entire timer regardless of queue emptiness
+                if self.elapsed_time >= self.allocated_green:
+                    self.current_state = "YELLOW"
+                    self.elapsed_time = 0.0
             else:
-                penalty = 1.0 + (self.cycles_starved[road] * 0.75)
-                weighted_scores[road] = score * penalty
+                # In ADAPTIVE mode: Cut off early if empty, or timeout expires
+                if current_pcu <= 0.0 or self.elapsed_time >= self.allocated_green:
+                    self.current_state = "YELLOW"
+                    self.elapsed_time = 0.0
 
-        # If all approaches are empty, round-robin to the next sequential road
-        if max(weighted_scores.values()) <= 0:
-            order = ["road1", "road2", "road3", "road4"]
-            current_idx = order.index(self.active_road)
-            return order[(current_idx + 1) % 4]
+        elif self.current_state == "YELLOW":
+            if self.elapsed_time >= self.yellow_duration:
+                self.current_state = "ALL_RED"
+                self.elapsed_time = 0.0
 
-        return max(weighted_scores, key=weighted_scores.get)
-
-    def step(self, dt: float, density_scores: dict, emergency_manager) -> dict:
-        self.elapsed_in_state += dt
-
-        # --- Emergency Mode Preemption ---
-        if emergency_manager.is_emergency:
-            target_road = emergency_manager.emergency_road
-            if self.active_road != target_road:
-                # Safely clear the current green road before switching
-                if self.current_state == self.STATE_GREEN:
-                    self.current_state = self.STATE_YELLOW
-                    self.allocated_duration = float(self.yellow_duration)
-                    self.elapsed_in_state = 0.0
-                elif self.current_state == self.STATE_YELLOW and self.elapsed_in_state >= self.allocated_duration:
-                    self.current_state = self.STATE_ALL_RED
-                    self.allocated_duration = float(self.all_red_duration)
-                    self.elapsed_in_state = 0.0
-                elif self.current_state == self.STATE_ALL_RED and self.elapsed_in_state >= self.allocated_duration:
-                    self.active_road = target_road
-                    self.current_state = self.STATE_GREEN
-                    self.allocated_duration = emergency_manager.active_time_remaining
-                    self.elapsed_in_state = 0.0
+        elif self.current_state == "ALL_RED":
+            if self.mode == "FIXED":
+                # Deterministic sequential round-robin: 1 -> 2 -> 3 -> 4 -> 1
+                if self.elapsed_time >= self.all_red_duration:
+                    curr_idx = self.roads.index(self.active_road)
+                    self.active_road = self.roads[(curr_idx + 1) % len(self.roads)]
+                    self.current_state = "GREEN"
+                    self.elapsed_time = 0.0
+                    self.allocated_green = float(self.fixed_green)
             else:
-                # Keep active road on green for the duration of the emergency
-                self.current_state = self.STATE_GREEN
-                self.allocated_duration = emergency_manager.active_time_remaining
-            return self._build_status(emergency_manager.is_emergency)
+                # ADAPTIVE mode: rest-in-red if all approaches empty
+                if total_pcu <= 0.0:
+                    self.elapsed_time = 0.0
+                    return {
+                        "active_road": self.active_road,
+                        "state": "ALL_RED",
+                        "remaining_seconds": 0,
+                        "mode": self.mode
+                    }
 
-        # --- Standard FSM Phase Transitions ---
-        if self.elapsed_in_state >= self.allocated_duration:
-            if self.current_state == self.STATE_GREEN:
-                self.current_state = self.STATE_YELLOW
-                self.allocated_duration = float(self.yellow_duration)
-                self.elapsed_in_state = 0.0
+                # Starvation prioritization followed by max PCU selection
+                chosen_road = None
+                for r in self.roads:
+                    if self.starvation_counters[r] >= self.starvation_threshold and density_scores.get(r, 0.0) > 0:
+                        chosen_road = r
+                        break
 
-            elif self.current_state == self.STATE_YELLOW:
-                self.current_state = self.STATE_ALL_RED
-                self.allocated_duration = float(self.all_red_duration)
-                self.elapsed_in_state = 0.0
+                if not chosen_road:
+                    chosen_road = max(self.roads, key=lambda r: density_scores.get(r, 0.0))
 
-            elif self.current_state == self.STATE_ALL_RED:
-                if self.mode == "FIXED":
-                    order = ["road1", "road2", "road3", "road4"]
-                    next_road = order[(order.index(self.active_road) + 1) % 4]
-                    green_time = self.fixed_time_duration
-                else:
-                    next_road = self.select_next_road(density_scores)
-                    green_time = self.calculate_green_time(density_scores.get(next_road, 0.0))
+                if density_scores.get(chosen_road, 0.0) > 0.0 and self.elapsed_time >= self.all_red_duration:
+                    self.active_road = chosen_road
+                    self.current_state = "GREEN"
+                    self.elapsed_time = 0.0
+                    for r in self.roads:
+                        if r == self.active_road:
+                            self.starvation_counters[r] = 0
+                        elif density_scores.get(r, 0.0) > 0:
+                            self.starvation_counters[r] += 1
+                    self.allocated_green = self._calc_green(density_scores.get(self.active_road, 0.0))
 
-                # Update starvation counters
-                for r in self.cycles_starved:
-                    if r == next_road:
-                        self.cycles_starved[r] = 0
-                    else:
-                        self.cycles_starved[r] += 1
+        # 3. Calculate Display Countdown
+        if self.current_state == "GREEN":
+            rem = max(0, int(round(self.allocated_green - self.elapsed_time)))
+        elif self.current_state == "YELLOW":
+            rem = max(0, int(round(self.yellow_duration - self.elapsed_time)))
+        else:
+            rem = 0
 
-                self.active_road = next_road
-                self.current_state = self.STATE_GREEN
-                self.allocated_duration = float(green_time)
-                self.elapsed_in_state = 0.0
-
-        return self._build_status(emergency_manager.is_emergency)
-
-    def _build_status(self, is_emergency: bool) -> dict:
-        remaining = max(0, int(round(self.allocated_duration - self.elapsed_in_state)))
         return {
-            "mode": "EMERGENCY" if is_emergency else self.mode,
             "active_road": self.active_road,
             "state": self.current_state,
-            "remaining_seconds": remaining,
-            "allocated_duration": self.allocated_duration
+            "remaining_seconds": rem,
+            "mode": self.mode
         }

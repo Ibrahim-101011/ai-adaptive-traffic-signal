@@ -7,6 +7,7 @@ class VehicleCounter:
     }
 
     def __init__(self):
+        self.road_counts = {}
         self.reset()
 
     def reset(self):
@@ -20,8 +21,8 @@ class VehicleCounter:
     def process_tracks(self, tracks: dict, region_manager):
         self.reset()
         for track_id, track_data in tracks.items():
-            centroid = track_data["centroid"]
-            cls_id = track_data["class_id"]
+            centroid = track_data.get("centroid")
+            cls_id = track_data.get("class_id", 2)
             road_id = region_manager.assign_road(centroid)
 
             if road_id in self.road_counts:
