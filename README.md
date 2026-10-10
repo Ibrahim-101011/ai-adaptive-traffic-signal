@@ -1,1810 +1,526 @@
-# AI-Based Adaptive Traffic Signal with Emergency Vehicle Priority
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>README - AI-Adaptive Traffic Signal System</title>
+</head>
+<body>
 
-A multidisciplinary academic prototype that uses **computer vision, YOLO vehicle detection, traffic-density estimation, adaptive signal control, emergency vehicle priority, and ESP32 hardware control** for a single 4-way intersection.
+  <h1>🚦 AI-Based Adaptive Traffic Signal Control &amp; Digital Twin System</h1>
 
-> **Project scope:** One 4-way intersection prototype  
-> **AI:** Pretrained YOLO + OpenCV  
-> **Backend:** Python  
-> **Hardware:** ESP32 + traffic LEDs  
-> **Communication:** USB Serial initially  
-> **Dashboard:** Streamlit  
-> **Evaluation:** Fixed-time vs adaptive control
+  <p>
+    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-blue.svg" alt="Python 3.10+"></a>
+    <a href="https://opencv.org/"><img src="https://img.shields.io/badge/OpenCV-4.x-green.svg" alt="OpenCV 4.x"></a>
+    <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/Dashboard-Streamlit-red.svg" alt="Streamlit"></a>
+    <a href="https://espressif.com/"><img src="https://img.shields.io/badge/Hardware-ESP32%20Serial-orange.svg" alt="ESP32 Serial"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  </p>
 
----
+  <p>A multidisciplinary engineering prototype combining <strong>Computer Vision</strong>, a <strong>Digital Twin Simulation Stream</strong>, an <strong>Adaptive Finite State Machine (FSM) Signal Controller</strong>, <strong>Emergency Vehicle Preemption</strong>, and an <strong>Interactive Operations Command Center Dashboard</strong> for an optimized 4-way intersection.</p>
 
-## 1. Project Overview
+  <blockquote>
+    <p>
+      <strong>Scope:</strong> Single 4-way intersection prototype<br>
+      <strong>Simulation Engine:</strong> Procedural Digital Twin with vectorized NumPy alpha blending (60+ FPS)<br>
+      <strong>Computer Vision:</strong> Ground-truth synthetic tracking / Pretrained Ultralytics YOLOv8<br>
+      <strong>Controller:</strong> Rule-based FSM with PCU density estimation &amp; anti-starvation fair round-robin<br>
+      <strong>Embedded Hardware:</strong> ESP32 Microcontroller + 12-channel LED traffic array<br>
+      <strong>Dashboard:</strong> Dark-themed Streamlit Live Telemetry Command Center<br>
+      <strong>Baseline Benchmark:</strong> Fixed-time vs. Adaptive control performance evaluation
+    </p>
+  </blockquote>
 
-Traditional traffic signals commonly use fixed timings. However, traffic density changes continuously between roads. A road with very few vehicles may receive the same green duration as a heavily congested road.
+  <hr>
 
-This project demonstrates an adaptive prototype that:
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#overview">Project Overview</a></li>
+    <li><a href="#problem-statement">Problem Statement</a></li>
+    <li><a href="#system-architecture">System Architecture</a></li>
+    <li><a href="#tech-stack">Hardware &amp; Software Stack</a></li>
+    <li><a href="#simulation-mechanics">Digital Twin &amp; Simulation Mechanics</a></li>
+    <li><a href="#pcu-density">Traffic Density &amp; PCU Formulation</a></li>
+    <li><a href="#controller-logic">Adaptive Signal Controller Logic</a></li>
+    <li><a href="#emergency-priority">Emergency Vehicle Priority</a></li>
+    <li><a href="#esp32-integration">ESP32 Embedded Integration</a></li>
+    <li><a href="#repo-structure">Repository Structure</a></li>
+    <li><a href="#installation">Installation &amp; Setup</a></li>
+    <li><a href="#running">Running the System</a></li>
+    <li><a href="#controls">Interactive Controls</a></li>
+    <li><a href="#dashboard">Streamlit Operations Dashboard</a></li>
+    <li><a href="#evaluation">Evaluation Metrics &amp; Comparative Testing</a></li>
+    <li><a href="#roles">Academic &amp; Team Roles (MDP)</a></li>
+    <li><a href="#roadmap">Limitations &amp; Future Roadmap</a></li>
+    <li><a href="#license">License</a></li>
+  </ol>
 
-1. Receives traffic video from a camera/video file.
-2. Detects vehicles using a pretrained YOLO model.
-3. Tracks/counts vehicles.
-4. Assigns vehicles to one of four roads.
-5. Estimates traffic density.
-6. Selects the road that should receive priority.
-7. Dynamically determines green duration.
-8. Provides safe emergency-vehicle priority.
-9. Sends signal commands to an ESP32.
-10. Controls physical traffic-light LEDs.
-11. Logs data for evaluation.
-12. Compares adaptive control against fixed-time control.
+  <hr>
 
-### High-level pipeline
+  <h2 id="overview">1. Project Overview</h2>
+  <p>Traditional traffic lights operate on rigid, fixed-time schedules regardless of instantaneous flow, resulting in empty green phases and heavy congestion buildup on opposing lanes.</p>
+  <p>This project delivers an end-to-end intelligent traffic system that:</p>
+  <ol>
+    <li>Simulates realistic intersection physics and vehicle flows in a real-time <strong>Digital Twin</strong> (or ingests live RTSP camera feeds).</li>
+    <li>Tracks vehicles across designated road approach polygons.</li>
+    <li>Computes Passenger Car Unit (PCU) weighted density dynamically.</li>
+    <li>Computes dynamic green times bounded by safety limits.</li>
+    <li>Prevents lane starvation using historical fairness counters.</li>
+    <li>Provides fail-safe emergency preemption (e.g., ambulances).</li>
+    <li>Transmits signal phase states over USB Serial to an ESP32 controlling physical signal LEDs.</li>
+    <li>Logs real-time metrics to disk and visualizes live intersection dynamics on a Streamlit dashboard.</li>
+  </ol>
 
-```text
-Camera / Video
-      ↓
-YOLO Vehicle Detection
-      ↓
-Tracking / Counting
-      ↓
-Road Assignment
-      ↓
-Traffic Density
-      ↓
-Adaptive Signal Controller
-      ↓
- ┌───────────────┐
- │ Normal Mode   │
- │ Emergency     │
- │ Priority      │
- └───────┬───────┘
+  <pre><code>Synthetic SimStream / RTSP Video Feed
+                ↓
+    Vehicle Tracking &amp; Detection
+                ↓
+   Road Region Polygon Assignment
+                ↓
+     PCU Density Calculation
+                ↓
+  FSM Adaptive Controller (Normal vs. Emergency)
+                ↓
+   ┌────────────────────────┬────────────────────────┐
+   ▼                        ▼                        ▼
+OpenCV Display         Streamlit TOC        ESP32 Serial Bus
+(HUD Diagnostics)      (Live Telemetry)     (Traffic LEDs)</code></pre>
+
+  <hr>
+
+  <h2 id="problem-statement">2. Problem Statement</h2>
+  <p>Fixed-time controllers assign static cycle splits regardless of actual queue demands.</p>
+  <p>Consider a scenario:</p>
+  <ul>
+    <li><strong>Road 1 (North):</strong> 22 vehicles (Heavy queue)</li>
+    <li><strong>Road 2 (East):</strong> 2 vehicles (Sparse)</li>
+    <li><strong>Road 3 (South):</strong> 8 vehicles (Moderate)</li>
+    <li><strong>Road 4 (West):</strong> 0 vehicles (Completely empty)</li>
+  </ul>
+  <p>Under a fixed-time schedule, Road 4 still receives a full green interval, forcing Road 1 to sit idle. In contrast, this adaptive system detects empty queues, truncates green cycles immediately, allocates extended green windows to Road 1, and clears waiting emergency units without manual intervention.</p>
+
+  <hr>
+
+  <h2 id="system-architecture">3. System Architecture</h2>
+  <pre><code>       ┌────────────────────────┐         ┌────────────────────────┐
+       │ Synthetic SimStream    │   OR    │ Live RTSP / Video Feed │
+       │ (Ground-Truth BBoxes)  │         │ (YOLOv8 + ByteTrack)   │
+       └───────────┬────────────┘         └───────────┬────────────┘
+                   │                                  │
+                   └─────────────────┬────────────────┘
+                                     ▼
+                       ┌───────────────────────────┐
+                       │ Road Region Polygon Masks │
+                       │   (North, East, South, W) │
+                       └─────────────┬─────────────┘
+                                     ▼
+                       ┌───────────────────────────┐
+                       │ Class-Weighted PCU Engine │
+                       └─────────────┬─────────────┘
+                                     ▼
+                       ┌───────────────────────────┐
+                       │  Adaptive FSM Controller  │
+                       │ ┌───────────────────────┐ │
+                       │ │ Normal Adaptive Mode  │ │
+                       │ │ Fixed Round-Robin     │ │
+                       │ │ Emergency Preemption  │ │
+                       │ └───────────────────────┘ │
+                       └─────────────┬─────────────┘
+                                     │
+           ┌─────────────────────────┼─────────────────────────┐
+           ▼                         ▼                         ▼
+┌────────────────────┐   ┌──────────────────────┐   ┌────────────────────┐
+│ OpenCV Heads-Up    │   │ CSV Telemetry Stream │   │ ESP32 Hardware     │
+│ Diagnostic Display │   │ (Non-blocking I/O)   │   │ UART Serial Bus    │
+└────────────────────┘   └──────────┬───────────┘   └──────────┬─────────┘
+                                    ▼                          ▼
+                         ┌──────────────────────┐   ┌────────────────────┐
+                         │ Streamlit Operations │   │ Physical Solid     │
+                         │ Command Center (TOC) │   │ State Signal LEDs  │
+                         └──────────────────────┘   └────────────────────┘</code></pre>
+
+  <hr>
+
+  <h2 id="tech-stack">4. Hardware &amp; Software Stack</h2>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Layer</th>
+        <th>Component / Tech</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Core Runtime</strong></td>
+        <td>Python 3.10+</td>
+        <td>Orchestration and pipeline execution</td>
+      </tr>
+      <tr>
+        <td><strong>Vision &amp; UI</strong></td>
+        <td>OpenCV 4.x</td>
+        <td>Video processing, graphics rendering, HUD overlay</td>
+      </tr>
+      <tr>
+        <td><strong>Detection</strong></td>
+        <td>Ultralytics YOLOv8 / SimStream</td>
+        <td>Real-world vehicle detection / Ground-truth simulation</td>
+      </tr>
+      <tr>
+        <td><strong>Data Engine</strong></td>
+        <td>NumPy &amp; Pandas</td>
+        <td>Vectorized blitting, mathematical calculations, CSV logs</td>
+      </tr>
+      <tr>
+        <td><strong>Dashboard</strong></td>
+        <td>Streamlit + Plotly Dark</td>
+        <td>Real-time web-based operations control center</td>
+      </tr>
+      <tr>
+        <td><strong>Embedded MCU</strong></td>
+        <td>ESP32 NodeMCU / DevKit v1</td>
+        <td>Low-level relay and LED signal execution</td>
+      </tr>
+      <tr>
+        <td><strong>Firmware</strong></td>
+        <td>Arduino C++</td>
+        <td>Microcontroller state machine and fail-safe watchdog</td>
+      </tr>
+      <tr>
+        <td><strong>Bus Protocol</strong></td>
+        <td>USB UART Serial (115200 baud)</td>
+        <td>Inter-process edge communication</td>
+      </tr>
+      <tr>
+        <td><strong>Testing</strong></td>
+        <td>pytest</td>
+        <td>Automated unit testing for FSM and density modules</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <h2 id="simulation-mechanics">5. Digital Twin &amp; Simulation Mechanics</h2>
+  <p>The digital twin (<code>src/sim_feed.py</code>) provides an 800×800 coordinate simulation environment:</p>
+  <ul>
+    <li><strong>Procedural Vehicle Sprites:</strong> Dynamic top-down rendering of sedans, taxis, motorcycles, city buses, and heavy trucks with rotating wheels, glass surfaces, and headlights.</li>
+    <li><strong>Vectorized NumPy Blitting:</strong> Uses bounded sub-array slicing for alpha-compositing, bypassing nested Python loops to maintain consistent 60+ FPS.</li>
+    <li><strong>Accurate Queue Dynamics:</strong> Vehicles calculate distance to the white stop line and decelerate smoothly to within 6–8 pixels of the line.</li>
+    <li><strong>Queue Take-Off Logic:</strong> When lights turn green, cars accelerate without accordion delays.</li>
+    <li><strong>3-Aspect Active Signal Heads:</strong> Physical traffic housings with LED illumination and outer glow rings reflect state transitions at each corner.</li>
+  </ul>
+
+  <hr>
+
+  <h2 id="pcu-density">6. Traffic Density &amp; PCU Formulation</h2>
+  <p>Raw vehicle counts do not accurately reflect road occupancy. A bus occupies significantly more road space and moves slower than a motorcycle.</p>
+  <p>The system uses <strong>Passenger Car Unit (PCU)</strong> equivalents:</p>
+  <p><code>PCU_total = Σ (N_class × W_class)</code></p>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Vehicle Class</th>
+        <th>Multiplier (W)</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Car / Taxi</strong></td>
+        <td><code>1.0</code></td>
+        <td>Baseline passenger vehicle</td>
+      </tr>
+      <tr>
+        <td><strong>Motorcycle</strong></td>
+        <td><code>0.5</code></td>
+        <td>Compact footprint, agile filter capacity</td>
+      </tr>
+      <tr>
+        <td><strong>Bus</strong></td>
+        <td><code>2.5</code></td>
+        <td>Large footprint, slow acceleration profile</td>
+      </tr>
+      <tr>
+        <td><strong>Truck</strong></td>
+        <td><code>2.5</code></td>
+        <td>Heavy cargo carrier, large stopping distance</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <h2 id="controller-logic">7. Adaptive Signal Controller Logic</h2>
+  <p>Implemented as a Finite State Machine (<code>src/signal_controller.py</code>) managing states: <code>GREEN</code>, <code>YELLOW</code>, and <code>ALL_RED</code>.</p>
+
+  <h3>A. Dynamic Green Calculation</h3>
+  <p><code>Duration_green = min(MaxGreen, max(MinGreen, MinGreen + (PCU × 2.0)))</code></p>
+  <ul>
+    <li><code>MinGreen</code>: 5 seconds (ensures pedestrian and clearing safety)</li>
+    <li><code>MaxGreen</code>: 20–40 seconds (prevents cross-traffic stagnation)</li>
+    <li><code>YellowDuration</code>: 2.0 seconds (clearance phase)</li>
+    <li><code>AllRedDuration</code>: 1.0 second (intersection clearance before next green)</li>
+  </ul>
+
+  <h3>B. Early Cutoff (Zero-Queue Discharge)</h3>
+  <p>In <code>ADAPTIVE</code> mode, if the approach's queue empties (<code>PCU &lt;= 0.0</code>), the green timer cuts off early and immediately transitions to Yellow, saving cycle time.</p>
+
+  <h3>C. Starvation Prevention Engine</h3>
+  <p>If a low-traffic lane waits through several cycles, its starvation counter increases. Once this exceeds <code>starvation_threshold</code> (default: 3), that road receives forced priority on the next cycle, ensuring fairness.</p>
+
+  <h3>D. Deterministic Fixed Mode</h3>
+  <p>When toggled to <code>FIXED</code>, the controller switches to a strict round-robin sequence (Road 1 → Road 2 → Road 3 → Road 4) running the full green duration (<code>10s</code>) without early cutoffs.</p>
+
+  <hr>
+
+  <h2 id="emergency-priority">8. Emergency Vehicle Priority</h2>
+  <p>When an emergency vehicle (ambulance, fire truck) is flagged on any approach:</p>
+  <ol>
+    <li>Normal adaptive logic is immediately preempted.</li>
+    <li>Conflicting movements transition safely through Yellow to All-Red.</li>
+    <li>The target emergency lane receives an immediate <code>GREEN</code> phase.</li>
+    <li>After clearance or manual release, the system safely transitions back to adaptive operation.</li>
+  </ol>
+
+  <pre><code>Emergency Triggered
          ↓
-Python → USB Serial → ESP32
-                         ↓
-                   Traffic LEDs
-```
-
----
-
-# 2. Problem Statement
-
-Fixed-time traffic signals do not always reflect real-time traffic conditions.
-
-For example:
-
-```text
-Road 1 → 20 vehicles
-Road 2 → 3 vehicles
-Road 3 → 7 vehicles
-Road 4 → 1 vehicle
-```
-
-A fixed-time controller may give every road similar green time.
-
-An adaptive controller can instead give more priority to the road with higher traffic while still maintaining minimum service and fairness for other roads.
-
-Emergency vehicles introduce another problem: normal signal scheduling may delay an ambulance or other emergency vehicle.
-
-The project therefore combines:
-
-- Computer-vision-based traffic estimation
-- Adaptive signal control
-- Emergency vehicle priority
-- Embedded traffic-light control
-
----
-
-# 3. Objectives
-
-## Primary objectives
-
-- Detect vehicles from traffic video.
-- Count vehicles road-wise.
-- Estimate traffic density.
-- Select a priority road dynamically.
-- Calculate green-light duration.
-- Implement emergency vehicle priority.
-- Safely transition between signal states.
-- Control a physical traffic-light prototype using ESP32.
-- Log system data.
-- Compare fixed-time and adaptive performance.
-
-## Secondary objectives
-
-- Provide a monitoring dashboard.
-- Make thresholds configurable.
-- Keep the prototype low-cost.
-- Keep the system modular.
-- Produce measurable experimental results.
-- Make the project reproducible for the MDP team.
-
----
-
-# 4. Project Scope
-
-The first version deliberately focuses on **one 4-way intersection**.
-
-## Included
-
-- Python application
-- OpenCV
-- YOLO vehicle detection
-- Vehicle tracking/counting
-- Four-road traffic analysis
-- Density estimation
-- Adaptive signal controller
-- Emergency override
-- ESP32 control
-- USB serial communication
-- CSV logging
-- Streamlit dashboard
-- Automated tests
-- Fixed-time baseline
-- Experimental evaluation
-
-## Not required initially
-
-- City-wide traffic coordination
-- Multiple connected intersections
-- Training YOLO from scratch
-- Full real-world traffic deployment
-- Large-scale reinforcement learning
-- Cloud infrastructure
-- Production-grade emergency authentication
-
-These can be considered future work.
-
----
-
-# 5. Safety and Emergency-Vehicle Framing
-
-The system does **not** give an emergency vehicle legal permission to ignore traffic signals or traffic rules.
-
-The prototype demonstrates coordinated signal control:
-
-```text
-Emergency detected
-       ↓
-Safely terminate current phase
-       ↓
-Conflicting directions → RED
-       ↓
-Emergency direction → GREEN
-       ↓
-Emergency vehicle passes
-       ↓
-Emergency phase ends
-       ↓
-Adaptive control resumes
-```
-
-A real-world system would require reliable emergency identification, authenticated communication, regulatory approval, fail-safe design, and extensive safety validation.
-
----
-
-# 6. System Architecture
-
-```text
-                       ┌────────────────────┐
-                       │ Camera / Traffic   │
-                       │ Video              │
-                       └─────────┬──────────┘
-                                 │
-                                 ▼
-                       ┌────────────────────┐
-                       │ YOLO Detector      │
-                       │ Car / Bike / Bus   │
-                       │ Truck              │
-                       └─────────┬──────────┘
-                                 │
-                                 ▼
-                       ┌────────────────────┐
-                       │ Tracking + IDs     │
-                       └─────────┬──────────┘
-                                 │
-                                 ▼
-                       ┌────────────────────┐
-                       │ Road Assignment    │
-                       │ R1 / R2 / R3 / R4  │
-                       └─────────┬──────────┘
-                                 │
-                                 ▼
-                       ┌────────────────────┐
-                       │ Density Engine     │
-                       │ LOW / MED / HIGH   │
-                       └─────────┬──────────┘
-                                 │
-                                 ▼
-                       ┌────────────────────┐
-                       │ Adaptive Signal    │
-                       │ Controller         │
-                       └─────────┬──────────┘
-                                 │
-                    ┌────────────┴────────────┐
-                    ▼                         ▼
-             Normal Operation          Emergency Mode
-                    │                         │
-                    └────────────┬────────────┘
-                                 ▼
-                       ┌────────────────────┐
-                       │ Python → ESP32     │
-                       │ USB Serial         │
-                       └─────────┬──────────┘
-                                 │
-                                 ▼
-                       ┌────────────────────┐
-                       │ Traffic LEDs       │
-                       │ R1 R2 R3 R4        │
-                       └────────────────────┘
-```
-
----
-
-# 7. Technology Stack
-
-| Component | Technology |
-|---|---|
-| Main language | Python |
-| Computer vision | OpenCV |
-| Object detection | Ultralytics YOLO |
-| Numerical processing | NumPy |
-| Data processing | Pandas |
-| Visualization | Matplotlib |
-| Dashboard | Streamlit |
-| Hardware | ESP32 |
-| Embedded code | Arduino C++ |
-| Communication | USB Serial |
-| Storage | CSV / JSON |
-| Testing | pytest |
-| Version control | Git / GitHub |
-
----
-
-# 8. Why YOLO?
-
-YOLO means **You Only Look Once**.
-
-It is used for object detection and provides information such as:
-
-- Bounding boxes
-- Object classes
-- Confidence scores
-
-For this prototype, relevant classes include:
-
-- Car
-- Motorcycle
-- Bus
-- Truck
-
-The initial implementation uses a **pretrained YOLO model**.
-
-## Why pretrained?
-
-Training a detection model from scratch would require:
-
-- A large labelled dataset
-- Data annotation
-- Training infrastructure
-- GPU computation
-- Hyperparameter tuning
-
-The main goal of the first prototype is to build and validate the complete traffic-control pipeline.
-
----
-
-# 9. Vehicle Detection
-
-For each video frame:
-
-```text
-Frame
- ↓
-YOLO
- ↓
-Detected objects
- ↓
-Filter vehicle classes
- ↓
-Confidence threshold
- ↓
-Bounding boxes
- ↓
-Vehicle centers
-```
-
-Example:
-
-```text
-Car         → Road 1
-Car         → Road 1
-Bus         → Road 3
-Motorcycle  → Road 2
-Car         → Road 1
-```
-
-Result:
-
-```text
-Road 1 = 3
-Road 2 = 1
-Road 3 = 1
-Road 4 = 0
-```
-
----
-
-# 10. Vehicle Tracking and Counting
-
-Detecting the same vehicle on every frame must not result in repeated counting.
-
-Example:
-
-```text
-Frame 1 → Car ID 17
-Frame 2 → Car ID 17
-Frame 3 → Car ID 17
-Frame 4 → Car ID 17
-```
-
-This represents one tracked vehicle.
-
-Tracking helps maintain object IDs and reduce duplicate counting.
-
-Possible issues include:
-
-- Occlusion
-- Missed detections
-- Vehicles entering/leaving regions
-- Poor camera angles
-- False detections
-- ID switches
-
-These limitations should be considered during testing.
-
----
-
-# 11. Four-Way Intersection
-
-The prototype represents four roads:
-
-```text
-                 ROAD 1
-                   ↓
-                   │
-                   │
-ROAD 4 ────────────┼──────────── ROAD 2
-                   │
-                   │
-                   ↑
-                 ROAD 3
-```
-
-Each road has a configurable region.
-
-Detected vehicle positions are used to determine which road they belong to.
-
-The exact coordinates are stored in configuration rather than hard-coded throughout the program.
-
----
-
-# 12. Traffic Density
-
-The first version uses vehicle count as a simple density indicator.
-
-Example:
-
-```text
-0–4 vehicles    → LOW
-5–9 vehicles    → MEDIUM
-10+ vehicles    → HIGH
-```
-
-The actual values should be configurable and tuned using project data.
-
-### Important limitation
-
-Vehicle count is a simplified representation of traffic density.
-
-A more advanced system could also consider:
-
-- Queue length
-- Vehicle speed
-- Road occupancy
-- Arrival rate
-- Lane position
-- Vehicle type
-- Historical traffic
-- Time of day
-
----
-
-# 13. Adaptive Signal Controller
-
-The initial controller is intentionally **rule-based**.
-
-It should:
-
-1. Examine traffic on all roads.
-2. Select a priority road.
-3. Calculate green time.
-4. Enforce minimum green time.
-5. Enforce maximum green time.
-6. Include yellow and all-red safety periods.
-7. Prevent starvation of other roads.
-
-Example:
-
-```text
-Road 1 = HIGH
-Road 2 = LOW
-Road 3 = MEDIUM
-Road 4 = LOW
-```
-
-The controller should normally prioritize Road 1.
-
-Conceptually:
-
-```text
-LOW     → shorter green
-MEDIUM  → medium green
-HIGH    → longer green
-```
-
-Do not describe the simple rule-based controller itself as machine learning.
-
----
-
-# 14. Green-Time Calculation
-
-Green duration should be bounded.
-
-Example:
-
-```text
-Minimum green = 10 seconds
-Maximum green = 40 seconds
-```
-
-A simplified controller may use traffic count to calculate a value between those limits.
-
-The exact formula should remain configurable and should be validated experimentally.
-
----
-
-# 15. Fairness and Starvation Prevention
-
-An adaptive system must not allow one road to dominate indefinitely.
-
-Example:
-
-```text
-Road 1 = HIGH continuously
-Road 2 = MEDIUM
-Road 3 = LOW
-Road 4 = LOW
-```
-
-Without fairness, Road 1 could repeatedly win.
-
-The controller should therefore consider:
-
-- Time since a road was last served
-- Maximum waiting time
-- Minimum service requirements
-
-This provides basic starvation prevention.
-
----
-
-# 16. Emergency Vehicle Priority
-
-Emergency mode temporarily overrides normal adaptive operation.
-
-Example:
-
-```text
-Emergency detected on Road 3
-          ↓
-Normal scheduling paused
-          ↓
-Current phase safely terminated
-          ↓
-Conflicting roads → RED
-          ↓
-Road 3 → GREEN
-          ↓
-Emergency vehicle passes
-          ↓
-Emergency mode ends
-          ↓
-Adaptive control resumes
-```
-
-A safe transition should include appropriate yellow/all-red periods where required.
-
----
-
-# 17. Emergency Detection
-
-The initial prototype can use a software emergency input or demonstration trigger.
-
-Possible approaches:
-
-- Manual emergency trigger
-- Camera-based emergency-vehicle detection
-- Dedicated emergency communication
-- Future authenticated transmitter
-
-A simple prototype trigger should not be presented as a production-grade emergency authentication system.
-
----
-
-# 18. ESP32 Role
-
-The laptop performs computationally heavy tasks:
-
-```text
-YOLO
-OpenCV
-Tracking
-Vehicle counting
-Density calculation
-Adaptive decisions
-```
-
-The ESP32 performs low-level control:
-
-```text
-Receive commands
-Maintain signal state
-Control LEDs
-```
-
-This separation keeps the embedded system lightweight.
-
----
-
-# 19. Why ESP32?
-
-ESP32 provides:
-
-- Multiple GPIO pins
-- Low cost
-- Easy embedded development
-- USB serial communication
-- Wi-Fi/Bluetooth for future expansion
-
-An Arduino Uno could also control LEDs, but ESP32 provides more flexibility for future connectivity.
-
----
-
-# 20. Communication
-
-Initial communication:
-
-```text
-Python
-   │
-   │ USB Serial
-   ▼
- ESP32
-   │
-   ▼
-Traffic LEDs
-```
-
-Example commands:
-
-```text
-ROAD1_GREEN
-ROAD2_GREEN
-ROAD3_GREEN
-ROAD4_GREEN
-ALL_RED
-EMERGENCY_ROAD3
-```
-
-Wi-Fi/MQTT can be considered later if required.
-
----
-
-# 21. Project Folder Structure
-
-```text
-ai-adaptive-traffic-signal/
+Current Phase Safely Terminated (Yellow Clearance)
+         ↓
+All Conflicting Lanes → RED
+         ↓
+Emergency Approach → GREEN (Preempt Phase)
+         ↓
+Clearance Timeout / Trigger Released
+         ↓
+Safe All-Red Transition
+         ↓
+Resume Adaptive Control</code></pre>
+
+  <hr>
+
+  <h2 id="esp32-integration">9. ESP32 Embedded Integration</h2>
+  <p>The edge PC communicates with an ESP32 driving a physical LED model.</p>
+  <pre><code>Laptop (Python) ──[USB Serial / UART @ 115200 baud]──&gt; ESP32 ──&gt; Relays / LEDs</code></pre>
+
+  <h3>JSON Serial Command Format</h3>
+  <pre><code>{"road": "road1", "state": "GREEN", "duration": 14}</code></pre>
+
+  <h3>Pin Mapping (Example ESP32 Configuration)</h3>
+  <pre><code>// Road 1 (North)
+#define R1_RED    23
+#define R1_YELLOW 22
+#define R1_GREEN  21
+
+// Road 2 (East)
+#define R2_RED    19
+#define R2_YELLOW 18
+#define R2_GREEN  5
+
+// Road 3 (South)
+#define R3_RED    17
+#define R3_YELLOW 16
+#define R3_GREEN  4
+
+// Road 4 (West)
+#define R4_RED    0
+#define R4_YELLOW 2
+#define R4_GREEN  15</code></pre>
+
+  <hr>
+
+  <h2 id="repo-structure">10. Repository Structure</h2>
+  <pre><code>ai-adaptive-traffic-signal/
+├── run_system.bat                 # Master launcher script
+├── requirements.txt               # Python package dependencies
+├── README.md                      # Comprehensive documentation
 │
-├── README.md
-├── requirements.txt
-├── .gitignore
-│
-├── config/
+├── config/                        # Intersection geometry and configuration
 │   └── config.yaml
 │
-├── src/
-│   ├── main.py
-│   ├── detector.py
-│   ├── tracker.py
-│   ├── road_regions.py
-│   ├── counter.py
-│   ├── density.py
-│   ├── signal_controller.py
-│   ├── emergency.py
-│   ├── communication.py
-│   ├── data_logger.py
-│   └── visualization.py
+├── dashboard/                     # Web-based operations monitoring
+│   └── app.py                     # Streamlit Traffic Operations Command Center (TOC)
 │
-├── dashboard/
-│   └── app.py
+├── data/                          # Data storage
+│   └── processed/                 # Streamed operational metrics
+│       └── traffic_telemetry.csv
 │
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── results/
+├── esp32/                         # Microcontroller firmware
+│   └── traffic_controller.ino     # Arduino C++ relay driver &amp; fail-safe watchdog
 │
-├── models/
+├── models/                        # Deep learning weights (for real video feeds)
+│   └── yolov8n.pt
 │
-├── videos/
+├── src/                           # Core application logic
+│   ├── counter.py                 # Approach polygon vehicle tracking and counting
+│   ├── density.py                 # PCU priority calculation engine
+│   ├── emergency.py               # Emergency preemption management
+│   ├── main.py                    # Pipeline orchestrator, HUD, and I/O loop
+│   ├── road_regions.py            # Coordinate mapper for 4-way approach zones
+│   ├── signal_controller.py       # Adaptive &amp; Fixed FSM signal state controller
+│   └── sim_feed.py                # Procedural digital twin simulation engine
 │
-├── tests/
+├── tests/                         # Unit tests
 │   ├── test_density.py
 │   └── test_controller.py
 │
-├── esp32/
-│   └── traffic_controller/
-│       └── traffic_controller.ino
-│
-└── docs/
-    ├── architecture.md
-    ├── testing.md
-    └── deployment.md
-```
+└── videos/                        # Recorded test footage for camera validation</code></pre>
 
----
+  <hr>
 
-# 22. Module Responsibilities
+  <h2 id="installation">11. Installation &amp; Setup</h2>
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Windows 10/11, Ubuntu 22.04+, or macOS</li>
+    <li>Python <code>3.10</code> or higher (verified with virtual environment)</li>
+    <li>(Optional) ESP32 Dev Board + LEDs and resistors</li>
+  </ul>
 
-### `src/main.py`
-
-Main entry point.
-
-- Parse command-line arguments
-- Start simulation/video mode
-- Connect system modules
-- Run the processing loop
-
-### `src/detector.py`
-
-- Load YOLO
-- Run inference
-- Filter vehicle classes
-- Apply confidence threshold
-- Return detections
-
-### `src/tracker.py`
-
-- Maintain object IDs
-- Track vehicles
-- Reduce duplicate counting
-
-### `src/road_regions.py`
-
-- Define road regions
-- Assign detections to Road 1–4
-
-### `src/counter.py`
-
-- Count vehicles
-- Maintain road-wise counts
-
-### `src/density.py`
-
-- Convert counts to LOW/MEDIUM/HIGH
-- Apply configurable thresholds
-
-### `src/signal_controller.py`
-
-- Select priority road
-- Calculate green time
-- Enforce min/max timing
-- Maintain fairness
-- Manage signal states
-
-### `src/emergency.py`
-
-- Receive emergency events
-- Select emergency road
-- Trigger safe override
-- Return to adaptive control
-
-### `src/communication.py`
-
-- Open serial connection
-- Send commands to ESP32
-- Handle connection errors
-- Support hardware-disabled operation
-
-### `src/data_logger.py`
-
-- Save counts
-- Save density
-- Save signal decisions
-- Save emergency events
-- Save results
-
-### `src/visualization.py`
-
-- Draw bounding boxes
-- Display IDs
-- Display counts
-- Display signal status
-- Display emergency status
-
-### `dashboard/app.py`
-
-Streamlit monitoring dashboard.
-
-Possible sections:
-
-- Current vehicle counts
-- Density by road
-- Current green road
-- Green duration
-- Emergency status
-- Historical graphs
-- Experiment results
-
----
-
-# 23. Configuration
-
-Project settings should be stored in:
-
-```text
-config/config.yaml
-```
-
-Example:
-
-```yaml
-model:
-  path: models/yolo_model.pt
-  confidence: 0.5
-
-video:
-  source: videos/traffic.mp4
-
-roads:
-  road1: ...
-  road2: ...
-  road3: ...
-  road4: ...
-
-density:
-  low_max: 4
-  medium_max: 9
-
-signal:
-  min_green: 10
-  max_green: 40
-  yellow: 3
-  all_red: 1
-  starvation_limit: 60
-
-serial:
-  enabled: false
-  port: COM3
-  baudrate: 115200
-
-logging:
-  enabled: true
-  csv_path: data/results/traffic_log.csv
-```
-
-The exact values should be adjusted during testing.
-
----
-
-# 24. Installation
-
-## Clone
-
-```bash
-git clone https://github.com/<YOUR_USERNAME>/ai-adaptive-traffic-signal.git
+  <h3>Setup Instructions</h3>
+  <pre><code># 1. Clone repository
+git clone https://github.com/&lt;YOUR_USERNAME&gt;/ai-adaptive-traffic-signal.git
 cd ai-adaptive-traffic-signal
-```
 
-## Create virtual environment
-
-Windows:
-
-```bash
+# 2. Create virtual environment
 python -m venv .venv
-```
 
-Activate:
-
-```bash
+# 3. Activate virtual environment
+# Windows:
 .venv\Scripts\activate
-```
-
-## Upgrade pip
-
-```bash
-python -m pip install --upgrade pip
-```
-
-## Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-# 25. Running the Project
-
-## Simulation mode
-
-Useful when testing without a camera or ESP32:
-
-```bash
-python src/main.py --mode simulation
-```
-
-Simulation should generate traffic counts and demonstrate the adaptive decision process.
-
-## Video mode
-
-```bash
-python src/main.py --mode video --source videos/traffic.mp4
-```
-
-The system should:
-
-1. Read video.
-2. Detect vehicles.
-3. Track vehicles.
-4. Assign vehicles to roads.
-5. Calculate density.
-6. Select a priority road.
-7. Calculate green duration.
-8. Display/log results.
-
-## Webcam mode
-
-If supported:
-
-```bash
-python src/main.py --mode video --source 0
-```
-
----
-
-# 26. YOLO Model Setup
-
-Model weights should be placed in:
-
-```text
-models/
-```
-
-Do not automatically commit very large model files to GitHub.
-
-Instead document:
-
-- Model name
-- Download source
-- Expected filename
-- Destination directory
-
-The exact model version should be recorded in project documentation so that experiments are reproducible.
-
----
-
-# 27. ESP32 Setup
-
-## Hardware
-
-Basic prototype:
-
-- ESP32 development board
-- Red LEDs
-- Yellow LEDs
-- Green LEDs
-- Resistors
-- Breadboard
-- Jumper wires
-- USB cable
-- Optional physical intersection model
-
-Each road can have:
-
-```text
-RED
-YELLOW
-GREEN
-```
-
-## Arduino IDE
-
-Open:
-
-```text
-esp32/traffic_controller/traffic_controller.ino
-```
-
-Select the correct ESP32 board and COM port, then upload the firmware.
-
----
-
-# 28. Hardware Signal Logic
-
-For four roads:
-
-```text
-Road 1:
-  RED
-  YELLOW
-  GREEN
-
-Road 2:
-  RED
-  YELLOW
-  GREEN
-
-Road 3:
-  RED
-  YELLOW
-  GREEN
-
-Road 4:
-  RED
-  YELLOW
-  GREEN
-```
-
-The controller must prevent conflicting directions from being green simultaneously.
-
----
-
-# 29. Data Logging
-
-Example CSV fields:
-
-```text
-timestamp
-road1_count
-road2_count
-road3_count
-road4_count
-road1_density
-road2_density
-road3_density
-road4_density
-selected_road
-green_duration
-emergency_active
-emergency_road
-```
-
-This data can be used for:
-
-- Performance graphs
-- MDP report
-- Presentation
-- Statistical analysis
-- Fixed-time vs adaptive comparison
-
----
-
-# 30. Evaluation Metrics
-
-The project should be evaluated using measurable metrics.
-
-## Average waiting time
-
-```text
-Average Waiting Time
-=
-Total Waiting Time / Number of Vehicles
-```
-
-## Queue length
-
-Number of vehicles waiting on a road.
-
-## Throughput
-
-Number of vehicles successfully served during a fixed time interval.
-
-## Emergency response time
-
-Time between:
-
-```text
-Emergency detected
-        ↓
-Emergency priority safely granted
-```
-
-## Green-time utilization
-
-How effectively each green phase is used.
-
----
-
-# 31. Fixed-Time vs Adaptive Evaluation
-
-A key experiment should compare:
-
-```text
-BASELINE
-Fixed-time traffic signal
-
-vs.
-
-PROPOSED
-Adaptive traffic signal
-```
-
-Use similar traffic input for both systems.
-
-Record:
-
-- Average waiting time
-- Queue length
-- Throughput
-- Green-time utilization
-- Emergency response time
-
-Do not fabricate results.
-
-Only report values obtained from actual experiments.
-
----
-
-# 32. Suggested Experiments
-
-## Experiment A — Balanced traffic
-
-```text
-Road 1 = 5
-Road 2 = 5
-Road 3 = 5
-Road 4 = 5
-```
-
-Expected behavior:
-
-- Balanced service
-- No road should starve
-
-## Experiment B — Heavy traffic
-
-```text
-Road 1 = 20
-Road 2 = 3
-Road 3 = 5
-Road 4 = 2
-```
-
-Expected behavior:
-
-- Road 1 receives greater priority
-- Other roads eventually receive service
-
-## Experiment C — Emergency
-
-```text
-Emergency road = Road 3
-```
-
-Expected behavior:
-
-1. Normal operation pauses.
-2. Safe transition occurs.
-3. Road 3 receives priority.
-4. Emergency phase ends.
-5. Adaptive control resumes.
-
----
-
-# 33. Testing
-
-Run:
-
-```bash
-pytest
-```
-
-Tests should cover at least:
-
-```text
-tests/test_density.py
-tests/test_controller.py
-```
-
-## Density tests
-
-Examples:
-
-```text
-0 vehicles → LOW
-5 vehicles → MEDIUM
-10 vehicles → HIGH
-```
-
-The actual boundaries should match `config.yaml`.
-
-## Controller tests
-
-Verify:
-
-- Green time ≥ minimum.
-- Green time ≤ maximum.
-- Correct priority selection.
-- Starvation prevention.
-- Emergency override.
-- Safe signal states.
-- Invalid states are rejected.
-
----
-
-# 34. Error Handling
-
-The system should provide understandable errors.
-
-Examples:
-
-### Missing video
-
-Explain that the video path is invalid.
-
-### Missing model
-
-Explain where the model should be placed.
-
-### ESP32 disconnected
-
-Allow software/simulation mode if hardware is disabled.
-
-### Serial failure
-
-Example:
-
-```text
-Unable to open serial port.
-Check the ESP32 connection and COM port.
-```
-
-### Invalid configuration
-
-Identify the invalid parameter clearly.
-
----
-
-# 35. Performance
-
-YOLO and video processing can be computationally expensive.
-
-Possible optimizations:
-
-- Use a smaller YOLO model.
-- Reduce input resolution.
-- Process every nth frame.
-- Use GPU acceleration where available.
-- Avoid unnecessary image copies.
-- Use efficient tracking.
-
-The laptop handles AI processing while the ESP32 handles low-level signal control.
-
----
-
-# 36. Development Strategy — Build Brick by Brick
-
-Do not build everything at once.
-
-## Brick 1 — Traffic Data Simulator
-
-Create fake counts for four roads.
-
-Goal:
-
-```text
-Road 1–4 counts
-→ identify highest traffic
-→ LOW/MEDIUM/HIGH
-```
-
-## Brick 2 — Traffic Data Analyzer
-
-Use Pandas.
-
-Goal:
-
-- Averages
-- Highest/lowest road
-- Graphs
-
-## Brick 3 — OpenCV Video Reader
-
-Goal:
-
-- Read video
-- Display frames
-- Draw road regions
-
-## Brick 4 — YOLO Detector
-
-Goal:
-
-- Detect vehicles
-- Draw bounding boxes
-- Show confidence
-
-## Brick 5 — Vehicle Tracking
-
-Goal:
-
-- Assign IDs
-- Avoid duplicate counting
-
-## Brick 6 — Four-Road Counting
-
-Goal:
-
-```text
-R1 count
-R2 count
-R3 count
-R4 count
-```
-
-## Brick 7 — Density Engine
-
-```text
-Count → Density
-```
-
-## Brick 8 — Adaptive Controller
-
-```text
-Density → Priority → Green duration
-```
-
-## Brick 9 — Emergency Override
-
-```text
-Emergency → Safe priority → Resume
-```
-
-## Brick 10 — ESP32 Communication
-
-```text
-Python → USB → ESP32 → LEDs
-```
-
-## Brick 11 — Full Integration
-
-```text
-Camera
-→ YOLO
-→ Tracking
-→ Counting
-→ Density
-→ Controller
-→ ESP32
-```
-
-## Brick 12 — Evaluation
-
-```text
-Fixed-time
-vs
-Adaptive
-```
-
-Collect actual measurements.
-
----
-
-# 37. Recommended Learning Order
-
-For the CSE/Data Science members:
-
-```text
-1. Python
-2. Git/GitHub
-3. NumPy
-4. Pandas
-5. Basic statistics
-6. OpenCV
-7. YOLO
-8. Tracking/counting
-9. Traffic-density estimation
-10. Adaptive algorithms
-11. ESP32 basics
-12. Serial communication
-13. Emergency logic
-14. Dashboard
-15. Testing
-16. Experimental evaluation
-17. Documentation
-```
-
-Advanced ML/optimization should come only after the rule-based system works.
-
----
-
-# 38. Team Responsibilities
-
-## CSE-DS Member 1 — Computer Vision + AI
-
-- Python
-- OpenCV
-- YOLO
-- Vehicle detection
-- Tracking
-- Counting
-- Road assignment
-- Density estimation
-
-## CSE-DS Member 2 — Software + Data
-
-- Data processing
-- Adaptive algorithm support
-- CSV/database
-- Dashboard
-- Visualization
-- Experiment analysis
-- Performance graphs
-- Software integration
-
-## ECM Member 1 — Embedded Hardware
-
-- ESP32
-- Arduino IDE
-- LEDs
-- Resistors
-- Breadboard
-- Traffic-light circuit
-- Hardware testing
-
-## ECM Member 2 — IoT + Integration
-
-- Laptop–ESP32 communication
-- Serial communication
-- Future Wi-Fi integration
-- Hardware/software integration
-- Debugging
-
-## ECE Member — Communication + Emergency
-
-- Emergency communication concept
-- Emergency detection interface
-- Reliability considerations
-- Communication architecture
-- Emergency-priority integration
-
----
-
-# 39. CSE-DS Contribution
-
-The main CSE/Data Science contribution is:
-
-```text
-Python
-  ↓
-Computer Vision
-  ↓
-Vehicle Detection
-  ↓
-Vehicle Tracking
-  ↓
-Vehicle Counting
-  ↓
-Road-wise Traffic Analysis
-  ↓
-Density Estimation
-  ↓
-Adaptive Signal Decision
-  ↓
-Emergency Software Logic
-  ↓
-Data Logging
-  ↓
-Experimental Evaluation
-```
-
----
-
-# 40. Research Gap
-
-The project should not claim that adaptive traffic signals or emergency priority are completely new.
-
-Existing work already covers:
-
-- Adaptive traffic control
-- Computer-vision traffic monitoring
-- Emergency vehicle priority
-- Intelligent transportation systems
-
-The project's practical contribution is a:
-
-> **Low-cost integrated single-intersection prototype combining computer-vision traffic estimation, adaptive signal control, emergency priority, ESP32 hardware control, and experimental comparison with fixed-time signaling.**
-
-The exact research gap should be refined using the team's literature review and faculty requirements.
-
----
-
-# 41. Innovation
-
-Avoid exaggerated claims.
-
-Do not say:
-
-```text
-We invented a completely new traffic signal system.
-```
-
-Prefer:
-
-```text
-We developed a low-cost integrated prototype that combines
-computer-vision-based traffic estimation, adaptive signal
-control, emergency priority, and embedded traffic-light control.
-```
-
----
-
-# 42. Limitations
-
-Current limitations include:
-
-- Camera-dependent detection
-- Lighting sensitivity
-- Occlusion
-- Camera-angle dependency
-- False/missed detections
-- Simplified traffic-density estimation
-- Prototype-scale hardware
-- Laptop-based AI processing
-- Limited emergency-identification reliability
-- Single-intersection scope
-
-These should be openly discussed in the final report.
-
----
-
-# 43. Future Scope
-
-Possible future improvements:
-
-### Multiple intersections
-
-Coordinate several traffic signals.
-
-### Edge AI
-
-Move computer vision to an edge device.
-
-### Authenticated emergency communication
-
-Use reliable emergency transmitters rather than simple software triggers.
-
-### Night/weather robustness
-
-Improve performance during:
-
-- Night
-- Rain
-- Fog
-- Glare
-
-### Traffic prediction
-
-Predict traffic instead of reacting only to current conditions.
-
-### ML optimization
-
-After validating the rule-based system, investigate:
-
-- Machine-learning-based optimization
-- Reinforcement learning
-- Traffic prediction models
-
-### IoT
-
-Connect intersections through a network and central dashboard.
-
-### Real-world pilot
-
-Test under controlled conditions with appropriate permissions and safety procedures.
-
----
-
-# 44. MDP Review — 60 Second Explanation
-
-> Our project is an AI-based adaptive traffic signal system for a single 4-way intersection. A camera provides traffic video, and a pretrained YOLO model detects vehicles. We track and count vehicles on each road and estimate traffic density. A rule-based adaptive controller selects the priority road and adjusts its green duration within safe limits. We also implement an emergency vehicle priority mode that safely stops conflicting traffic, gives priority to the emergency vehicle's direction, and then returns to adaptive operation. The laptop handles computer vision and decision-making, while an ESP32 controls the physical traffic LEDs. Finally, we compare the adaptive system with a fixed-time baseline using metrics such as waiting time, queue length, throughput, and emergency response time.
-
----
-
-# 45. Common Guide Questions
-
-### Why this project?
-
-Fixed-time signals do not always respond to changing traffic conditions, and emergency vehicles can experience unnecessary delays.
-
-### Why YOLO?
-
-YOLO provides object detection with bounding boxes, classes, and confidence scores and is suitable for real-time computer-vision prototyping.
-
-### Are you training YOLO?
-
-Initially, no. A pretrained model is used.
-
-### What is traffic density?
-
-For this prototype, density is primarily represented using the number of detected vehicles in each road region.
-
-### Is the adaptive algorithm AI?
-
-The initial controller is rule-based. It should not be incorrectly described as machine learning.
-
-### Why ESP32?
-
-It is low-cost, has useful GPIO, supports serial communication, and provides future connectivity options.
-
-### Why not run YOLO on ESP32?
-
-YOLO inference is computationally demanding. The ESP32 is better suited to low-level signal control.
-
-### How does emergency mode work?
-
-The system safely transitions from normal operation, stops conflicting traffic, gives priority to the emergency direction, and then returns to adaptive control.
-
-### How do you prove it works?
-
-By comparing measured fixed-time and adaptive performance using actual experimental data.
-
----
-
-# 46. GitHub Workflow
-
-Useful commands:
-
-```bash
-git status
-git add .
-git commit -m "Add vehicle detection module"
-git push
-```
-
-Suggested commits:
-
-```text
-Initial project structure
-Add traffic simulation
-Add OpenCV video reader
-Add YOLO vehicle detection
-Add vehicle tracking
-Add road-wise counting
-Add density engine
-Add adaptive controller
-Add emergency priority
-Add ESP32 serial communication
-Add dashboard
-Add evaluation tests
-Update documentation
-```
-
----
-
-# 47. Repository Information
-
-## Recommended repository name
-
-```text
-ai-adaptive-traffic-signal
-```
-
-## Recommended description
-
-```text
-AI-based adaptive traffic signal prototype using computer vision, YOLO vehicle detection, traffic-density estimation, emergency vehicle priority, and ESP32 control.
-```
-
-## Suggested GitHub topics
-
-```text
-python
-computer-vision
-yolo
-opencv
-traffic-management
-traffic-signal
-artificial-intelligence
-data-science
-esp32
-embedded-systems
-```
-
----
-
-# 48. `.gitignore`
-
-Recommended entries:
-
-```gitignore
-.venv/
-__pycache__/
-*.pyc
-.env
-.vscode/
-.idea/
-*.log
-
-data/raw/*
-data/processed/*
-data/results/*
-
-videos/*
-models/*
-```
-
-Large videos, datasets, generated logs, and model weights should generally not be committed directly unless there is a specific reason.
-
----
-
-# 49. Reproducibility
-
-A new team member should be able to understand:
-
-1. What the project does.
-2. Required hardware.
-3. Required software.
-4. Installation steps.
-5. Model setup.
-6. Video setup.
-7. Simulation mode.
-8. Video mode.
-9. ESP32 setup.
-10. Testing.
-11. Evaluation.
-12. Experiment reproduction.
-
-Update this README whenever project setup or architecture changes.
-
----
-
-# 50. Definition of Done
-
-The first complete prototype should satisfy:
-
-- [ ] Repository organized
-- [ ] Python environment works
-- [ ] Simulation works
-- [ ] OpenCV video input works
-- [ ] YOLO detects vehicles
-- [ ] Tracking works
-- [ ] Vehicles assigned to roads
-- [ ] Road-wise counts produced
-- [ ] Density calculated
-- [ ] Adaptive controller works
-- [ ] Green time respects limits
-- [ ] Fairness/starvation prevention works
-- [ ] Emergency override works
-- [ ] Safe signal transition works
-- [ ] ESP32 receives commands
-- [ ] LEDs represent signal states
-- [ ] Data is logged
-- [ ] Dashboard works
-- [ ] Tests pass
-- [ ] Fixed-time baseline exists
-- [ ] Adaptive comparison completed
-- [ ] Experimental data recorded
-- [ ] MDP documentation completed
-- [ ] Final demo is reproducible
-
----
-
-# 51. Final Demonstration Flow
-
-Recommended presentation:
-
-```text
-1. Show the 4-way physical intersection
-2. Start the Python application
-3. Show traffic video
-4. Show YOLO detections
-5. Show vehicle counts
-6. Show LOW/MEDIUM/HIGH density
-7. Show adaptive signal decision
-8. Show ESP32 LEDs changing
-9. Trigger emergency event
-10. Show safe emergency priority
-11. End emergency phase
-12. Show adaptive control resuming
-13. Show logged data
-14. Show fixed-time vs adaptive graphs
-15. Explain limitations
-16. Explain future scope
-```
-
----
-
-# 52. Final Architecture Summary
-
-```text
-                  AI ADAPTIVE TRAFFIC SIGNAL
-                              │
-          ┌───────────────────┴───────────────────┐
-          │                                       │
-          ▼                                       ▼
-   COMPUTER VISION                         EMBEDDED CONTROL
-          │                                       │
-     Camera/Video                              ESP32
-          │                                       │
-      YOLO Detection                         Serial Commands
-          │                                       │
-     Tracking/Counting                       Traffic LEDs
-          │
-     Road Assignment
-          │
-    Density Estimation
-          │
-          ▼
-   Adaptive Controller
-          │
-      ┌───┴────┐
-      │        │
-    Normal  Emergency
-      │        │
-      └───┬────┘
-          │
-          ▼
-    Signal Decision
-          │
-          ▼
- Data Logging + Dashboard
-          │
-          ▼
-Performance Evaluation
-```
-
----
-
-# 53. Expected Final Outcome
-
-The completed prototype should demonstrate:
-
-> **Traffic video → vehicle detection → vehicle tracking/counting → road-wise traffic density → adaptive signal decision → safe emergency override → ESP32 signal control → physical traffic LEDs → logged experimental results.**
-
-The project should support its claims using actual measurements rather than assumptions.
-
----
-
-# 54. License
-
-Choose an appropriate open-source license before publishing.
-
-MIT is a common option for academic software projects, but the final license should be selected according to project requirements and the licenses of third-party libraries, models, datasets, and other dependencies.
-
----
-
-# 55. Acknowledgements
-
-This is a multidisciplinary academic project involving:
-
-- Computer Science / Data Science
-- Electronics and Communication
-- Electronics / Embedded Systems
-
-All third-party libraries, pretrained models, datasets, videos, and other external resources should be credited according to their respective licenses and documentation.
-
----
-
-## Project Status
-
-**Project:** AI-Based Adaptive Traffic Signal with Emergency Vehicle Priority  
-**Stage:** Prototype development  
-**Scope:** Single 4-way intersection  
-**Software:** Python + OpenCV + YOLO  
-**Hardware:** ESP32 + traffic LEDs  
-**Communication:** USB Serial  
-**Evaluation:** Fixed-time vs adaptive control
+# Linux / macOS:
+source .venv/bin/activate
+
+# 4. Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt</code></pre>
+
+  <hr>
+
+  <h2 id="running">12. Running the System</h2>
+  <h3>One-Click Launch (Windows)</h3>
+  <p>Run the master batch controller to launch both the simulation and the dashboard concurrently:</p>
+  <pre><code>.\run_system.bat</code></pre>
+  <p>This script handles:</p>
+  <ol>
+    <li>Environment validation (<code>.venv</code>).</li>
+    <li>Telemetry directory initialization (<code>data/processed</code>).</li>
+    <li>Spawning the <strong>Digital Twin Simulation Window</strong>.</li>
+    <li>Launching the <strong>Streamlit Command Center</strong> in your default web browser.</li>
+  </ol>
+
+  <h3>Manual Execution</h3>
+  <p>If launching services individually across multiple terminals:</p>
+  <p><strong>Terminal 1 (Simulation Engine):</strong></p>
+  <pre><code>python -u src/main.py</code></pre>
+  <p><strong>Terminal 2 (Telemetry Dashboard):</strong></p>
+  <pre><code>streamlit run dashboard/app.py</code></pre>
+
+  <hr>
+
+  <h2 id="controls">13. Interactive Controls</h2>
+  <p>While focused inside the OpenCV simulation display window:</p>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Key</th>
+        <th>Action</th>
+        <th>Behavior</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>1</code></td>
+        <td><strong>Emergency Road 1</strong></td>
+        <td>Preempts cycle; grants immediate Green to North approach.</td>
+      </tr>
+      <tr>
+        <td><code>2</code></td>
+        <td><strong>Emergency Road 2</strong></td>
+        <td>Preempts cycle; grants immediate Green to East approach.</td>
+      </tr>
+      <tr>
+        <td><code>3</code></td>
+        <td><strong>Emergency Road 3</strong></td>
+        <td>Preempts cycle; grants immediate Green to South approach.</td>
+      </tr>
+      <tr>
+        <td><code>4</code></td>
+        <td><strong>Emergency Road 4</strong></td>
+        <td>Preempts cycle; grants immediate Green to West approach.</td>
+      </tr>
+      <tr>
+        <td><code>C</code></td>
+        <td><strong>Clear Emergency</strong></td>
+        <td>Clears override and returns smoothly to adaptive cycles.</td>
+      </tr>
+      <tr>
+        <td><code>M</code></td>
+        <td><strong>Toggle Mode</strong></td>
+        <td>Toggles between <code>ADAPTIVE</code> (dynamic PCU) and <code>FIXED</code> (round-robin).</td>
+      </tr>
+      <tr>
+        <td><code>Q</code> / <code>ESC</code></td>
+        <td><strong>Quit</strong></td>
+        <td>Cleanly terminates simulation processes and releases windows.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <h2 id="dashboard">14. Streamlit Operations Dashboard</h2>
+  <p>The dashboard (<code>dashboard/app.py</code>) provides real-time visibility into intersection state:</p>
+  <ul>
+    <li><strong>Phase Approach Cards:</strong> Illuminated Red, Yellow, and Green bulbs with outer glows matching the OpenCV simulation.</li>
+    <li><strong>KPI Metrics:</strong> Active Phase Approach, Countdown Timer, Intersection Density (PCU), and Total Queued Units.</li>
+    <li><strong>PCU Congestion Timeline:</strong> Multi-approach line charts tracking historical queuing trends.</li>
+    <li><strong>Current Load Distribution:</strong> Real-time donut chart displaying relative load per approach.</li>
+    <li><strong>Raw Telemetry Stream:</strong> Historical event logs written to disk at 1 Hz.</li>
+  </ul>
+
+  <hr>
+
+  <h2 id="evaluation">15. Evaluation Metrics &amp; Comparative Testing</h2>
+  <p>The system evaluates traffic performance using four key metrics:</p>
+  <ol>
+    <li><strong>Average Delay / Wait Time:</strong> Time vehicles spend idling at red signals before clearing the intersection.</li>
+    <li><strong>Queue Discharge Rate:</strong> Time required to fully clear an approach queue upon receiving green.</li>
+    <li><strong>Starvation Rate:</strong> Maximum consecutive cycles an approach waits without green service.</li>
+    <li><strong>Emergency Response Latency:</strong> Time elapsed from emergency flag activation to active green clearance.</li>
+  </ol>
+
+  <h3>Running Comparative Tests</h3>
+  <pre><code>pytest tests/</code></pre>
+
+  <hr>
+
+  <h2 id="roles">16. Academic &amp; Team Roles (MDP)</h2>
+  <p>This project spans multiple engineering disciplines:</p>
+  <ul>
+    <li><strong>Computer Science &amp; Data Science:</strong> Computer vision integration, vehicle tracking, PCU algorithms, state machine logic, Streamlit UI, and data analysis.</li>
+    <li><strong>Electronics &amp; Embedded Systems:</strong> ESP32 firmware, relay drivers, breadboard LED arrays, and UART communication.</li>
+    <li><strong>Communication &amp; Systems Engineering:</strong> Emergency override protocols, safety fail-safes, and system integration.</li>
+  </ul>
+
+  <hr>
+
+  <h2 id="roadmap">17. Limitations &amp; Future Roadmap</h2>
+  <h3>Current Limitations</h3>
+  <ul>
+    <li>Detection accuracy in real-world camera feeds is subject to lighting, weather, and camera angle variations.</li>
+    <li>Physical scale is currently validated on an embedded desktop prototype.</li>
+  </ul>
+
+  <h3>Future Roadmap</h3>
+  <ul>
+    <li><strong>Edge Deployment:</strong> Porting deep learning inference to NVIDIA Jetson hardware with TensorRT optimization.</li>
+    <li><strong>Corridor Coordination:</strong> Linking adjacent intersections using MQTT/green-wave progression algorithms.</li>
+    <li><strong>V2X Communication:</strong> Integrating wireless emergency preemption via authenticated DSRC or cellular V2X protocols.</li>
+  </ul>
+
+  <hr>
+
+  <h2 id="license">18. License</h2>
+  <p>Distributed under the <strong>MIT License</strong>. See <code>LICENSE</code> for details.</p>
+
+</body>
+</html>
